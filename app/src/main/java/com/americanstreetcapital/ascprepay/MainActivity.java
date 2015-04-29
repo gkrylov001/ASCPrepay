@@ -2,7 +2,9 @@ package com.americanstreetcapital.ascprepay;
 
 import android.app.ActionBar;
 import android.app.FragmentTransaction;
+import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.Handler;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentActivity;
 import android.support.v4.app.FragmentManager;
@@ -14,6 +16,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.EditText;
+import android.widget.LinearLayout;
 import android.widget.TableLayout;
 import android.widget.TableRow;
 import android.widget.TextView;
@@ -27,7 +30,7 @@ public class MainActivity extends FragmentActivity implements ActionBar.TabListe
     public static double term = 120;
     public static double amort = 120;
     public static double paymentsMade = 0;
-    public static double treasury = .03;
+    public static double treasury = 2;
 
     /**
      * The {@link android.support.v4.view.PagerAdapter} that will provide fragments for each of the
@@ -83,10 +86,10 @@ public class MainActivity extends FragmentActivity implements ActionBar.TabListe
                     title = "Loan Info";
                     break;
                 case 1:
-                    title = "Amort Table";
+                    title = "Results";
                     break;
                 case 2:
-                    title = "Summary";
+                    title = "Amort Table";
                     break;
             }
             actionBar.addTab(
@@ -126,9 +129,9 @@ public class MainActivity extends FragmentActivity implements ActionBar.TabListe
                 case 0:
                     return new FormSectionFragment();
                 case 1:
-                    return new AmortSectionFragment();
-                case 2:
                     return new ResultsSectionFragment();
+                case 2:
+                    return new AmortSectionFragment();
 
                 default:
                     return  new ResultsSectionFragment();
@@ -146,11 +149,16 @@ public class MainActivity extends FragmentActivity implements ActionBar.TabListe
         }
     }
 
+    /*
+    **FORM FRAGMENT
+     */
     public static class FormSectionFragment extends Fragment {
         @Override
         public View onCreateView(LayoutInflater inflater, ViewGroup container,
                                  Bundle savedInstanceState) {
             View rootView = inflater.inflate(R.layout.fragment_section_form, container, false);
+
+            new GetTreasury().execute();
 
             EditText edAmount = (EditText) rootView.findViewById(R.id.edamount);
             edAmount.setHint("1,000,000");
@@ -182,6 +190,7 @@ public class MainActivity extends FragmentActivity implements ActionBar.TabListe
                 public void afterTextChanged(Editable s) {
                     if (s.length() > 0 && !s.toString().equals(".")) {
                         term = Double.parseDouble(s.toString());
+                        new GetTreasury().execute();
                     }
                 }
                 public void beforeTextChanged(CharSequence s, int start, int count, int after) { }
@@ -213,17 +222,37 @@ public class MainActivity extends FragmentActivity implements ActionBar.TabListe
             });
             return rootView;
         }
+
+        private class GetTreasury extends AsyncTask<Void, Void, Void> {
+            @Override
+            protected Void doInBackground(Void... voids) {
+                try {
+                    treasury = Payment.decideRate((int) term);
+                } catch (Exception e) {
+                    treasury = 2;
+                    return null;
+                }
+                return null;
+            }
+        }
     }
 
-    public static class AmortSectionFragment extends Fragment {
+    /*
+    **AMORT FRAGMENT
+     */
+    public static class AmortSectionFragment extends Fragment implements Runnable {
+        Handler handler = new Handler();
+
         @Override
         public View onCreateView(LayoutInflater inflater, ViewGroup container,
                                  Bundle savedInstanceState) {
             View rootView = inflater.inflate(R.layout.fragment_section_amortization, container, false);
 
+            //handler.post(run);
             double[][] amortA = amort(amount, rate, amort);
             String[][] formatAmort = format(amortA);
-            fillTable(formatAmort[0].length,formatAmort,(TableLayout) rootView.findViewById(R.id.tableLayout1));
+            //fillTable(formatAmort[0].length,formatAmort,(TableLayout) rootView.findViewById(R.id.tableLayout1));
+            fillLayout(formatAmort, (LinearLayout)rootView.findViewById(R.id.llContainer));
 
             return rootView;
         }
@@ -232,11 +261,46 @@ public class MainActivity extends FragmentActivity implements ActionBar.TabListe
         public void setUserVisibleHint(boolean isVisibleToUser) {
             super.setUserVisibleHint(isVisibleToUser);
             if (isVisibleToUser) {
-                double[][] amortA = amort(amount, rate, amort);
+                //handler.post(run);
+                /*double[][] amortA = amort(amount, rate, amort);
                 String[][] formatAmort = format(amortA);
-                fillTable(formatAmort[0].length, formatAmort, (TableLayout) getActivity().findViewById(R.id.tableLayout1));
+                fillTable(formatAmort[0].length, formatAmort, (TableLayout) getActivity().findViewById(R.id.tableLayout1));*/
             }
             else {  }
+        }
+
+        private void fillLayout(String[][] matrix, LinearLayout l) {
+            l.removeAllViews();
+            for (int i = 0; i< matrix.length; i++) {
+                LinearLayout row = new LinearLayout(getActivity());
+                row.setLayoutParams(new LinearLayout.LayoutParams(LinearLayout.LayoutParams.FILL_PARENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT));
+                row.setOrientation(LinearLayout.HORIZONTAL);
+
+                for (int j = 0; j < matrix[0].length; j++) {
+                    float weight;
+
+                    TextView tv = new TextView(getActivity());
+                    tv.setText(matrix[i][j]);
+                    switch (j) {
+                        case 0:
+                            weight = .15f;
+                            break;
+                        case 3:
+                            weight = .29f;
+                            break;
+                        default:
+                            weight = .28f;
+                            break;
+                    }
+                    LinearLayout.LayoutParams param = new LinearLayout.LayoutParams(0,
+                            LinearLayout.LayoutParams.WRAP_CONTENT, weight);
+                    tv.setLayoutParams(param);
+                    //tv.setPadding(10,10,10,10);
+                    row.addView(tv);
+                }
+                l.addView(row);
+            }
         }
 
         private void fillTable(final int n, final String[][] matrix, TableLayout table) {
@@ -276,6 +340,7 @@ public class MainActivity extends FragmentActivity implements ActionBar.TabListe
                 //amort[i][6] = balance;
                 amountStart = balance;
             }
+            amortA[amortA.length-1][amortA[0].length-1] = 0;
             return amortA;
         }
 
@@ -307,53 +372,63 @@ public class MainActivity extends FragmentActivity implements ActionBar.TabListe
             double payment = balance * mRate;
             return payment;
         }
+
+        Runnable run = new Runnable() {
+            @Override
+            public void run() {
+                double[][] amortA = amort(amount, rate, amort);
+                String[][] formatAmort = format(amortA);
+                //fillTable(formatAmort[0].length, formatAmort, (TableLayout) getActivity().findViewById(R.id.tableLayout1));
+            }
+        };
+
+        public void run() {}
+
     }
 
+    /*
+    **RESULTS FRAGMENT
+     */
     public static class ResultsSectionFragment extends Fragment {
         @Override
         public View onCreateView(LayoutInflater inflater, ViewGroup container,
                                  Bundle savedInstanceState) {
             View rootView = inflater.inflate(R.layout.fragment_section_results, container, false);
 
-            double penalty = Payment.getPenalty(amount,rate/100,term,amort,paymentsMade,treasury);
+            double monthlyPmt = Payment.payment(amount,rate/100,amort);
+            double penalty = Payment.getPenalty(amount,rate/100,term,amort,paymentsMade,treasury/100);
             NumberFormat formatter = NumberFormat.getNumberInstance();
             formatter.setMinimumFractionDigits(2);
             formatter.setMaximumFractionDigits(2);
             String output = formatter.format(Math.abs(penalty));
+            String out2 = formatter.format(Math.abs(penalty/amount));
+            String out3 = formatter.format(Math.abs(monthlyPmt));
             TextView tv = (TextView) rootView.findViewById(R.id.resultsTV);
-            tv.setTextSize(25);
-            tv.setText("Your prepayment penalty is $"+output);
+            tv.setTextSize(20);
+            String results = "Loan Amount: $"+formatter.format(amount)+"\n\nMonthly Payment: $"+out3+"\n\nPrepayment Penalty: $"+output+"\n("+out2+"% of loan amount)";
+            tv.setText(results);
+            //new DisplayTask().execute();
 
             return rootView;
-        }
-
-        @Override
-        public void onResume() {
-            super.onResume();
-            double penalty = Payment.getPenalty(amount,rate/100,term,amort,paymentsMade,treasury);
-            NumberFormat formatter = NumberFormat.getNumberInstance();
-            formatter.setMinimumFractionDigits(2);
-            formatter.setMaximumFractionDigits(2);
-            String output = formatter.format(Math.abs(penalty));
-            TextView tv = (TextView) getActivity().findViewById(R.id.resultsTV);
-            tv.setTextSize(25);
-            tv.setText("Your prepayment penalty is $"+output);
-
         }
 
         @Override
         public void setUserVisibleHint(boolean isVisibleToUser) {
             super.setUserVisibleHint(isVisibleToUser);
             if (isVisibleToUser) {
-                double penalty = Payment.getPenalty(amount,rate/100,term,amort,paymentsMade,treasury);
+                double monthlyPmt = Payment.payment(amount,rate/100,amort);
+                double penalty = Payment.getPenalty(amount,rate/100,term,amort,paymentsMade,treasury/100);
                 NumberFormat formatter = NumberFormat.getNumberInstance();
                 formatter.setMinimumFractionDigits(2);
                 formatter.setMaximumFractionDigits(2);
                 String output = formatter.format(Math.abs(penalty));
+                String out2 = formatter.format(Math.abs(penalty/amount*100));
+                String out3 = formatter.format(Math.abs(monthlyPmt));
                 TextView tv = (TextView) getActivity().findViewById(R.id.resultsTV);
-                tv.setTextSize(25);
-                tv.setText("Your prepayment penalty is $"+output);
-
+                tv.setTextSize(20);
+                String results = "Loan Amount: $"+formatter.format(amount)+"\n\nMonthly Payment: $"+out3+"\n\nPrepayment Penalty: $"+output+"\n("+out2+"% of loan amount)";
+                tv.setText(results);
+                //new DisplayTask().execute();
             }
             else {  }
         }

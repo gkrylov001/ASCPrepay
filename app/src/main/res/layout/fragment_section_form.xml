@@ -101,6 +101,12 @@
                         android:layout_height="wrap_content"
                         android:inputType="numberDecimal"/>
                 </LinearLayout>
+
+                <TextView android:id="@+id/instructions"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/instructions"
+                    android:paddingTop="20dp"/>
             </LinearLayout>
         </ScrollView>
 

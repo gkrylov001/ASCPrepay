@@ -1,6 +1,7 @@
 <resources>
-    <string name="app_name">ASC Prepay</string>
+    <string name="app_name">ASC Prepayment Penalty Calculator</string>
 
     <string name="hello_world">Hello world!</string>
     <string name="action_settings">Settings</string>
+    <string name="instructions">Instructions: Please enter your loan amount in dollars, your interest rate in percent, your loan term and amortization in months, and the number of payments you have already made on your loan. The treasury/reinvestment rate is automatically pulled from the internet by this app.</string>
 </resources>
